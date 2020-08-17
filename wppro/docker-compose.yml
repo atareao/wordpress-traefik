@@ -1,0 +1,72 @@
+---
+version: '3'
+services:
+  sqlwp:
+    container_name: sqlwppro
+    image: mariadb
+    restart: unless-stopped
+    volumes:
+      - datasqlwp:/var/lib/mysql
+    env_file:
+      - wp.env
+    networks:
+      - internalpro
+
+  nginxwp:
+    container_name: nginxforwppro
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - datawp:/var/www/html
+      - datanginxlogs:/var/log/nginx/
+      - ./conf/nginx-wp:/etc/nginx/
+    links:
+      - wp
+    labels:
+      traefik.enable: true
+      traefik.http.routers.nginxwp-http.rule: Host(`wppro.tuservidor.es`)
+      traefik.http.routers.nginxwp-http.entrypoints: http
+      traefik.http.routers.nginxwp-https.rule: Host(`wppro.tuservidor.es`)
+      traefik.http.routers.nginxwp-https.entrypoints: https
+      traefik.http.routers.nginxwp-https.tls: true
+      traefik.http.routers.nginxwp-https.tls.certresolver: myresolver
+    networks:
+      - proxy
+      - internalpro
+
+  wp:
+    container_name: wppro
+    image: wordpress:5-php7.4-fpm-alpine
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./conf/php.ini:/usr/local/etc/php/php.ini
+      - datawp:/var/www/html
+    depends_on:
+      - sqlwp
+    env_file:
+      - wp.env
+    networks:
+      - internalpro
+
+  redis:
+    container_name: rediswppro
+    image: redis:6
+    restart: unless-stopped
+    volumes:
+      - dataredis:/data
+    networks:
+      - internalpro
+volumes:
+  datasqlwp:
+  datanginxlogs:
+  datawp:
+  dataredis:
+
+networks:
+  internalpro:
+  proxy:
+    external: true
